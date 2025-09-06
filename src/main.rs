@@ -48,7 +48,7 @@ use regex::Regex;
 use rpassword::read_password;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::env;
+use std::{env, process};
 use std::fmt::{self, Debug};
 use std::fs::{self, File};
 use std::io::{self, stdin, stdout, IsTerminal, Read, Write};
@@ -3378,6 +3378,10 @@ pub(crate) async fn cli_logout(client: &Client, ap: &mut Args) -> Result<(), Err
 /// We need your code contributions! Please add features and make PRs! :pray: :clap:
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    if std::env::args().nth(1).is_none() {
+        eprintln!("Missing arguments, please see --help");
+        process::exit(1);
+    }
     let mut ap = Args::parse();
     let mut errcount = 0;
     let mut result: Result<(), Error> = Ok(());
