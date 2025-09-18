@@ -463,9 +463,8 @@ pub struct Args {
     /// to the data and the MIME type 'png' will be attached to it.
     /// Furthermore, '-' can only be used once.
     #[arg(short, long, num_args(0..), )]
-    pub file: Vec<String>,
+    pub file: Vec<PathBuf>,
 
-    // Todo: change this Vec<String> to Vec<PathBuf> for --file
     /// Specify the message type as Notice.
     /// Details::
     /// There are 3 message types for '--message'.

@@ -1122,11 +1122,15 @@ pub(crate) async fn cli_file(client: &Client, ap: &Args) -> Result<(), Error> {
     }
     let mut files: Vec<PathBuf> = Vec::new();
     for filename in &ap.file {
-        match filename.as_str() {
-            "" => info!("Skipping empty file name."),
-            r"-" => files.push(PathBuf::from("-".to_string())),
-            r"\-" => files.push(PathBuf::from(r"\-".to_string())),
-            _ => files.push(PathBuf::from(filename)),
+        match filename.to_str() {
+            Some("") => info!("Skipping empty file name."),
+            Some(r"-") => files.push(PathBuf::from("-")),
+            Some(r"\-") => files.push(PathBuf::from(r"\-")),
+            Some(_) => files.push(filename.clone()),
+            None => {
+                warn!("Skipping file with invalid UTF-8 path: {:?}", filename);
+                continue;
+            }
         }
     }
     // pb: label to attach to a stdin pipe data in case there is data piped in from stdin
