@@ -74,6 +74,7 @@ use matrix_sdk::{
     Client,
     SessionMeta,
 };
+use serde_json::json;
 
 /// import matrix-sdk Client related code of general kind: login, logout, verify, sync, etc
 mod mclient;
@@ -91,7 +92,10 @@ use crate::mclient::{
 
 // import matrix-sdk Client related code related to receiving messages and listening
 mod listen;
+pub mod output;
+
 use crate::listen::{listen_all, listen_forever, listen_once, listen_tail};
+use crate::output::Output;
 
 /// the version number from Cargo.toml at compile time
 const VERSION_O: Option<&str> = option_env!("CARGO_PKG_VERSION");
@@ -640,55 +644,6 @@ impl LogLevel {
 
 /// Creates .to_string() for Listen for --listen option
 impl fmt::Display for LogLevel {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-        // or, alternatively:
-        // fmt::Debug::fmt(self, f)
-    }
-}
-
-/// Enumerator used for --output option
-#[derive(Clone, Debug, Copy, PartialEq, Default, ValueEnum)]
-pub enum Output {
-    // None: only useful if one needs to know if option was used or not.
-    // Sort of like an or instead of an Option<Sync>.
-    // We do not need to know if user used the option or not,
-    // we just need to know the value.
-    /// Text: Indicates to print human readable text, default
-    #[default]
-    Text,
-    /// Json: Indicates to print output in Json format
-    Json,
-    /// Json Max: Indicates to to print the maximum anount of output in Json format
-    JsonMax,
-    /// Json Spec: Indicates to to print output in Json format, but only data that is according to Matrix Specifications
-    JsonSpec,
-}
-
-/// is_ functions for the enum
-impl Output {
-    pub fn is_text(&self) -> bool {
-        self == &Self::Text
-    }
-    // pub fn is_json_spec(&self) -> bool { self == &Self::JsonSpec }
-}
-
-/// Converting from String to Listen for --listen option
-impl FromStr for Output {
-    type Err = ();
-    fn from_str(src: &str) -> Result<Output, ()> {
-        return match src.to_lowercase().replace('-', "_").trim() {
-            "text" => Ok(Output::Text),
-            "json" => Ok(Output::Json),
-            "jsonmax" | "json_max" => Ok(Output::JsonMax), // accept all 3: jsonmax, json-max, json_max
-            "jsonspec" | "json_spec" => Ok(Output::JsonSpec),
-            _ => Err(()),
-        };
-    }
-}
-
-/// Creates .to_string() for Listen for --listen option
-impl fmt::Display for Output {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
         // or, alternatively:
@@ -1338,38 +1293,16 @@ pub struct Args {
     #[arg(long)]
     whoami: bool,
 
-    /// Specify the output format.
-    /// Details::
-    /// This option decides on how the output is presented.
-    /// Currently offered choices are: 'text', 'json', 'json-max',
-    /// and 'json-spec'. Provide one of these choices.
-    /// The default is 'text'. If you want to use the default,
-    /// then there is no need to use this option. If you have
-    /// chosen 'text', the output will be formatted with the
-    /// intention to be consumed by humans, i.e. readable
-    /// text. If you have chosen 'json', the output will be
-    /// formatted as JSON. The content of the JSON object
-    /// matches the data provided by the matrix-nio SDK. In
-    /// some occassions the output is enhanced by having a few
-    /// extra data items added for convenience. In most cases
-    /// the output will be processed by other programs rather
-    /// than read by humans. Option 'json-max' is practically
-    /// the same as 'json', but yet another additional field
-    /// is added. The data item 'transport_response' which
-    /// gives information on how the data was obtained and
-    /// transported is also being added. For '--listen' a few
-    /// more fields are added. In most cases the output will
-    /// be processed by other programs rather than read by
-    /// humans. Option 'json-spec' only prints information
-    /// that adheres 1-to-1 to the Matrix Specification.
-    /// Currently only the events on '--listen' and '--tail'
-    /// provide data exactly as in the Matrix Specification.
-    /// If no data is available that corresponds exactly with
-    /// the Matrix Specification, no data will be printed. In
-    /// short, currently '--json-spec' only provides outputs
-    /// for '--listen' and '--tail'.
-    // All other arguments like
-    // '--get-room-info' will print no output.
+    /// Output format.
+    ///
+    /// | Format (default: text) | Description |
+    /// |--------|-------------|
+    /// | `text` | Human-readable text |
+    /// | `json` | JSON with minor convenience fields added |
+    /// | `json-max` | JSON + `transport_response` (extra fields for `--listen`) |
+    /// | `json-spec` | Strict Matrix Specification output. Only works with `--listen`/`--tail` |
+    ///
+    /// **Note:** `json-spec` produces no output for commands like `--get-room-info`.
     #[arg(short, long, value_enum,
         value_name = "OUTPUT_FORMAT",
         default_value_t = Output::default(), ignore_case = true, )]
@@ -2472,39 +2405,31 @@ pub async fn readme() {
 
 /// Prints the version information
 pub fn version(output: Output) {
-    let version = if stdout().is_terminal() {
-        get_version().green()
-    } else {
-        get_version().normal()
-    };
+    let program = get_prog_without_ext();
+    let version = get_version();
+    let repo = get_pkg_repository();
     match output {
         Output::Text => {
+            let colored = if stdout().is_terminal() { version.green() } else { version.normal() };
             println!();
-            println!(
-                "  _|      _|      _|_|_|                     {}",
-                get_prog_without_ext()
-            );
+            println!("  _|      _|      _|_|_|                     {}", program);
             print!("  _|_|  _|_|    _|             _~^~^~_       ");
             println!("a rusty vision of a Matrix CLI client");
-            println!(
-                "  _|  _|  _|    _|         \\) /  o o  \\ (/   version {}",
-                version
-            );
-            println!(
-                "  _|      _|    _|           '_   -   _'     repo {}",
-                get_pkg_repository()
-            );
+            println!("  _|  _|  _|    _|         \\) /  o o  \\ (/   version {}", colored);
+            println!("  _|      _|    _|           '_   -   _'     repo {}", repo);
             print!("  _|      _|      _|_|_|     / '-----' \\     ");
             println!("please submit PRs to make the vision a reality");
             println!();
-        }
+        },
+        Output::Json | Output::JsonMax => {
+            let info = json!({
+                "program" : program,
+                "version" : version,
+                "repo" : repo,
+            });
+            println!("{}", serde_json::to_string(&info).unwrap())
+        },
         Output::JsonSpec => (),
-        _ => println!(
-            "{{\"program\": {:?}, \"version\": {:?}, \"repo\": {:?}}}",
-            get_prog_without_ext(),
-            get_version(),
-            get_pkg_repository()
-        ),
     }
 }
 
@@ -3117,12 +3042,16 @@ pub(crate) fn whoami(ap: &Args) -> OwnedUserId {
 
 /// Handle the --whoami CLI argument
 pub(crate) fn cli_whoami(ap: &Args) -> Result<(), Error> {
-    info!("Whoami chosen.");
     let whoami = crate::whoami(ap);
     match ap.output {
         Output::Text => println!("{}", whoami),
         Output::JsonSpec => (),
-        _ => println!("{{\"user_id\": \"{}\"}}", whoami),
+        Output::Json | Output::JsonMax => {
+            let info = json!({
+                "user_id" : whoami,
+            });
+            println!("{}", serde_json::to_string(&info)?);
+        },
     }
     Ok(())
 }
