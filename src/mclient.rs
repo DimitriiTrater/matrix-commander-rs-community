@@ -13,28 +13,19 @@
 use mime::Mime;
 use std::borrow::Cow;
 use std::io::{self, Read, Write};
-// use std::env;
 use std::fs;
 use std::fs::File;
-// use std::ops::Deref;
-// use std::path::Path;
 use std::io::{stdin, IsTerminal};
 use std::path::PathBuf;
 use tracing::{debug, error, info, warn};
-// use thiserror::Error;
-// use directories::ProjectDirs;
-// use serde::{Deserialize, Serialize};
-//use serde_json::Result;
 use url::Url;
+use std::time::Duration;
 
 use matrix_sdk::{
     attachment::AttachmentConfig,
     config::{RequestConfig, StoreConfig, SyncSettings},
-    // encryption::CryptoStoreError,
-    // deserialized_responses::RawSyncOrStrippedState,
-    instant::Duration,
-    matrix_auth::{MatrixSession, MatrixSessionTokens},
-    media::{MediaFormat, MediaRequest},
+    authentication::{matrix::MatrixSession, SessionTokens},
+    media::{MediaFormat, MediaRequestParameters},
     room,
     room::{Room, RoomMember},
     ruma::{
@@ -43,21 +34,12 @@ use matrix_sdk::{
         api::client::room::Visibility,
         api::client::uiaa,
         events::room::encryption::RoomEncryptionEventContent,
-        // OwnedRoomOrAliasId, OwnedServerName,
-        // device_id,
         events::room::member::RoomMemberEventContent,
-        // events::room::message::SyncRoomMessageEvent,
         events::room::message::{
             EmoteMessageEventContent,
-            // FileMessageEventContent,
             MessageType,
             NoticeMessageEventContent,
-            // OriginalRoomMessageEvent, OriginalSyncRoomMessageEvent,
-            // RedactedRoomMessageEventContent, RoomMessageEvent,
-            // OriginalSyncRoomEncryptedEvent,
-            // RedactedSyncRoomMessageEvent,
             RoomMessageEventContent,
-            // SyncRoomMessageEvent,
             TextMessageEventContent,
         },
         events::room::name::RoomNameEventContent,
@@ -67,17 +49,12 @@ use matrix_sdk::{
         events::AnyInitialStateEvent,
         events::EmptyStateKey,
         events::InitialStateEvent,
-        // events::OriginalMessageLikeEvent,
         serde::Raw,
         EventEncryptionAlgorithm,
-        // MxcUri,
-        // DeviceId,
-        // room_id, session_id, user_id,
         OwnedDeviceId,
         OwnedMxcUri,
         OwnedRoomAliasId,
         OwnedRoomId,
-        // UInt,
         OwnedUserId,
         RoomAliasId,
         RoomId,
@@ -87,8 +64,9 @@ use matrix_sdk::{
     RoomMemberships,
     SessionMeta,
 };
+use matrix_sdk_base::EncryptionState;
+use serde::{Serialize, Deserialize};
 
-// from main.rs
 use crate::{
     credentials_exist, get_password, get_store_default_path, get_store_depreciated_default_path,
     Args, Credentials, Error, Listen, Output, Sync,
@@ -239,7 +217,7 @@ pub(crate) async fn convert_to_full_mxc_uris(vecstr: &mut Vec<OwnedMxcUri>, defa
             i += 1;
             continue;
         }
-        let mxc = "mxc://".to_owned() + default_host + "/" + &s;
+        let mxc = "mxc://".to_owned() + default_host + "/" + s.as_str();
         vecstr[i] = OwnedMxcUri::from(mxc);
         if !vecstr[i].is_valid() {
             error!(
@@ -388,7 +366,7 @@ pub(crate) async fn restore_login(credentials: &Credentials, ap: &Args) -> Resul
             user_id: credentials.user_id.clone(),
             device_id: credentials.device_id.clone(),
         },
-        tokens: MatrixSessionTokens {
+        tokens: SessionTokens {
             access_token: credentials.access_token.clone(),
             refresh_token: None,
         },
@@ -460,10 +438,10 @@ pub(crate) async fn login<'a>(
     let credentials = Credentials::new(
         homeserver.clone(),
         client.session_meta().unwrap().user_id.clone(),
-        client.matrix_auth().access_token().unwrap(),
+        client.access_token().unwrap(),
         client.session_meta().unwrap().device_id.clone(),
         room_default.to_string(),
-        client.matrix_auth().refresh_token(),
+        client.session_tokens().and_then(|t| t.refresh_token.clone()),
     );
     credentials.save(&ap.credentials)?;
     // sync is needed even when --login is used,
@@ -508,11 +486,10 @@ async fn create_client(homeserver: &Url, ap: &Args) -> Result<Client, Error> {
     // let builder = if let Some(proxy) = cli.proxy { builder.proxy(proxy) } else { builder };
     let builder = Client::builder()
         .homeserver_url(homeserver)
-        .store_config(StoreConfig::new())
+        .store_config(StoreConfig::new("mc.conf".to_owned()))
         .request_config(
             RequestConfig::new()
                 .timeout(Duration::from_secs(ap.timeout))
-                .retry_timeout(Duration::from_secs(ap.timeout)),
         );
     let client = builder
         .sqlite_store(sqlitestorehome, None)
@@ -567,7 +544,7 @@ pub(crate) async fn bootstrap(client: &Client, ap: &mut Args) -> Result<(), Erro
 pub(crate) async fn verify(client: &Client, ap: &Args) -> Result<(), Error> {
     let userid = &ap.creds.as_ref().unwrap().user_id.clone();
     let deviceid = &ap.creds.as_ref().unwrap().device_id.clone();
-    debug!("Client logged in: {}", client.logged_in());
+    debug!("Client logged in: {}", client.is_active());
     debug!("Client user id: {}", userid);
     debug!("Client device id: {}", deviceid);
     debug!(
@@ -933,10 +910,12 @@ pub(crate) async fn set_display_name(
 /// Get profile of the current user.
 pub(crate) async fn get_profile(client: &Client, output: Output) -> Result<(), Error> {
     debug!("Get profile from server");
-    if let Ok(profile) = client.account().get_profile().await {
+    if let Ok(profile) = client.account().fetch_user_profile().await {
         debug!("Profile successfully. Profile {:?}", profile);
+        let display_name = profile.get("displayname").and_then(|d| d.as_str()).unwrap_or("");
+        let avatar_url = profile.get("avatarUrl").and_then(|a| a.as_str()).unwrap_or("");
         print_json(
-            &json::object!(display_name: profile.displayname, avatar_url: profile.avatar_url.as_ref().map(|x| x.as_str())),
+            &json::object!(display_name: display_name, avatar_url: avatar_url),
             output,
             false,
         );
@@ -1115,7 +1094,7 @@ pub(crate) fn print_common_room(room: &room::Room, output: Output) {
             //                 room.name().unwrap_or_default(),
             //                 room.topic().unwrap_or_default(),
             //             );
-            #[derive(serde::Serialize)]
+            #[derive(Serialize)]
             struct MyRoom<'a> {
                 room_id: &'a str,
                 room_info: &'a matrix_sdk::RoomInfo,
@@ -1143,7 +1122,7 @@ pub(crate) fn print_common_rooms(rooms: Vec<room::Room>, output: Output) {
         }
         Output::JsonSpec => (),
         _ => {
-            #[derive(serde::Serialize)]
+            #[derive(Serialize)]
             struct MyRoom<'a> {
                 room_id: &'a str,
                 room_info: matrix_sdk::RoomInfo,
@@ -1186,7 +1165,8 @@ pub(crate) fn print_rooms(
         }
         Some(matrix_sdk::RoomState::Left) => {
             print_common_rooms(client.left_rooms(), output);
-        }
+        },
+        Some(matrix_sdk::RoomState::Knocked) | Some(matrix_sdk::RoomState::Banned) => todo!()
     };
     Ok(())
 }
@@ -1290,10 +1270,10 @@ pub(crate) async fn room_create(
             //     pub visibility: Visibility,  }
             let content =
                 RoomEncryptionEventContent::new(EventEncryptionAlgorithm::MegolmV1AesSha2);
-            let initstateev: InitialStateEvent<RoomEncryptionEventContent> = InitialStateEvent {
-                content,
-                state_key: EmptyStateKey,
-            };
+            let initstateev = InitialStateEvent::new(
+                EmptyStateKey,
+                content
+            );
             let rawinitstateev = Raw::new(&initstateev)?;
             // let anyinitstateev: AnyInitialStateEvent =
             //     matrix_sdk::ruma::events::AnyInitialStateEvent::RoomEncryption(initstateev);
@@ -1380,12 +1360,7 @@ pub(crate) async fn room_create(
                         topic: to_opt(&topics2[i]),
                         invited: <std::string::String as AsRef<str>>::as_ref(&users2[i]),
                         direct: created_room.is_direct().await.unwrap_or(is_dm),
-                        encrypted: created_room.is_encrypted().await.unwrap_or(is_encrypted),
-                        visibility: if created_room.is_public() {
-                            "Public"
-                        } else {
-                            "Private"
-                        },
+                        encrypted: matches!(created_room.encryption_state(), EncryptionState::Encrypted) || is_encrypted,
                     ),
                     output,
                     false,
@@ -1911,7 +1886,7 @@ fn print_room_visibility(room_id: &OwnedRoomId, room: &Room, output: Output) {
             println!(
                 "Room:    {:?}    {:?}",
                 room_id,
-                if room.is_public() {
+                if let Some(_) = room.is_public() {
                     "public"
                 } else {
                     "private"
@@ -1923,7 +1898,7 @@ fn print_room_visibility(room_id: &OwnedRoomId, room: &Room, output: Output) {
             println!(
                 "{{\"room_id\": {:?}, \"public\": {}}}",
                 room_id,
-                room.is_public()
+                room.is_public().unwrap()
             );
         }
     }
@@ -2136,16 +2111,16 @@ fn print_room_members(room_id: &OwnedRoomId, members: &[RoomMember], output: Out
         }
         Output::JsonSpec => (),
         _ => {
-            #[derive(serde::Serialize, serde::Deserialize)]
+            #[derive(Serialize, Deserialize)]
             struct MyMember<'a> {
                 user_id: &'a str,
                 display_name: &'a str,
                 name: &'a str,
                 avatar_url: &'a str,
-                power_level: i64,
+                power_level: String,
                 membership: &'a str,
             }
-            #[derive(serde::Serialize, serde::Deserialize)]
+            #[derive(Serialize, Deserialize)]
             struct MyRoom<'a> {
                 room_id: &'a str,
                 members: Vec<MyMember<'a>>,
@@ -2157,7 +2132,7 @@ fn print_room_members(room_id: &OwnedRoomId, members: &[RoomMember], output: Out
                     display_name: m.display_name().unwrap_or(""),
                     name: m.name(),
                     avatar_url: m.avatar_url().unwrap_or("".into()).as_str(),
-                    power_level: m.power_level(),
+                    power_level: format!("{:?}", m.power_level()),
                     membership: m.membership().as_str(),
                 };
                 mymembers.push(mymember);
@@ -2706,7 +2681,7 @@ pub(crate) async fn media_upload(
             );
             err_count += 1;
         } else {
-            match client.media().upload(&mime, data).await {
+            match client.media().upload(&mime, data, None).await {
                 Ok(response) => {
                     debug!("upload successful {:?}", response);
                     print_json(
@@ -2771,7 +2746,7 @@ pub(crate) async fn media_download(
                 10,
             ));
         }
-        let request = MediaRequest {
+        let request = MediaRequestParameters {
             source: MediaSource::Plain(mxc_uri.clone()),
             format: MediaFormat::File,
         };
