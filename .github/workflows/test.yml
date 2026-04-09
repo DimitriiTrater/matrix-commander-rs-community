@@ -1,29 +1,89 @@
-# .github/workflow/test.yml
-
-# build the crate and run the test cases
-# like cargo build; cargo test
-
-name: Test
+name: Rust CI
 
 on:
-  # TURNED IT OFF IN SEPT 2024
-  # push:
-  #   branches: [ "main" ]
-  # pull_request:
-  #   branches: [ "main" ]
-  workflow_dispatch:
+    push:
+        branches:
+            - main
+            - master
+    pull_request:
+    workflow_dispatch:
 
 env:
-  CARGO_TERM_COLOR: always
+    CARGO_TERM_COLOR: always
+
+concurrency:
+    group: rust-ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-  build:
+    fmt:
+        name: Format check
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-    runs-on: ubuntu-latest
+            - name: Install stable toolchain with rustfmt
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: rustfmt
 
-    steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+            - name: Cache cargo and target
+              uses: Swatinem/rust-cache@v2
+
+            - name: Run rustfmt check
+              run: cargo fmt --all -- --check
+
+    clippy:
+        name: Clippy
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install stable toolchain with clippy
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: clippy
+
+            - name: Cache cargo and target
+              uses: Swatinem/rust-cache@v2
+
+            - name: Run clippy
+              run: cargo clippy --locked --all-targets -- -D warnings
+
+    test:
+        name: Test suite
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install stable toolchain
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache cargo and target
+              uses: Swatinem/rust-cache@v2
+
+            - name: Run tests
+              run: cargo test --locked --all-targets
+
+    build:
+        name: Build binary
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install stable toolchain
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache cargo and target
+              uses: Swatinem/rust-cache@v2
+
+            - name: Build release binary
+              run: cargo build --locked --release --bin matrix-commander-rs
+
+            - name: Upload binary artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: matrix-commander-rs-linux-x86_64
+                  path: target/release/matrix-commander-rs
+                  if-no-files-found: error
