@@ -26,7 +26,6 @@ use matrix_sdk::{
                 cancel::ToDeviceKeyVerificationCancelEvent,
                 done::{OriginalSyncKeyVerificationDoneEvent, ToDeviceKeyVerificationDoneEvent},
                 key::{OriginalSyncKeyVerificationKeyEvent, ToDeviceKeyVerificationKeyEvent},
-                // mac::{ToDeviceKeyVerificationMacEvent},
                 ready::ToDeviceKeyVerificationReadyEvent,
                 request::ToDeviceKeyVerificationRequestEvent,
                 start::OriginalSyncKeyVerificationStartEvent,
@@ -40,7 +39,7 @@ use matrix_sdk::{
     Client,
 };
 // local
-use crate::get_prog_without_ext;
+use crate::base::get_prog_without_ext;
 
 async fn wait_for_confirmation(sas: SasVerification, emoji: [Emoji; 7]) {
     println!("\nDo the emojis match: \n{}", format_emojis(emoji));
@@ -96,7 +95,7 @@ async fn print_devices(user_id: &UserId, client: &Client) {
 async fn sas_verification_handler(client: Client, sas: SasVerification) {
     println!(
         "Starting verification with {} {}",
-        &sas.other_device().user_id(),
+        &sas.other_user_id(),
         &sas.other_device().device_id()
     );
     print_devices(sas.other_device().user_id(), &client).await;
@@ -228,109 +227,6 @@ pub async fn sync_wait_for_verification_request(client: &Client) -> matrix_sdk::
         },
     );
 
-    // // removed Sept 2024, following matrix-rust-sdk/examples/emoji_verification
-    // client.add_event_handler(
-    //     |ev: ToDeviceKeyVerificationStartEvent, client: Client| async move {
-    //         debug!("ToDeviceKeyVerificationStartEvent");
-    //         if let Some(Verification::SasV1(sas)) = client
-    //             .encryption()
-    //             .get_verification(&ev.sender, ev.content.transaction_id.as_str())
-    //             .await
-    //         {
-    //             info!(
-    //                 "Starting verification with {} {}",
-    //                 &sas.other_device().user_id(),
-    //                 &sas.other_device().device_id()
-    //             );
-    //             print_devices(&ev.sender, &client).await;
-    //             sas.accept().await.unwrap();
-    //         }
-    //     },
-    // );
-
-    // // removed Sept 2024, following matrix-rust-sdk/examples/emoji_verification
-    // client.add_event_handler(
-    //     |ev: ToDeviceKeyVerificationKeyEvent, client: Client| async move {
-    //         debug!("ToDeviceKeyVerificationKeyEvent");
-    //         if let Some(Verification::SasV1(sas)) = client
-    //             .encryption()
-    //             .get_verification(&ev.sender, ev.content.transaction_id.as_str())
-    //             .await
-    //         {
-    //             tokio::spawn(sas_verification_handler(client, sas));
-    //         }
-    //     },
-    // );
-
-    // // removed Sept 2024, following matrix-rust-sdk/examples/emoji_verification
-    // client.add_event_handler(
-    //     |ev: ToDeviceKeyVerificationDoneEvent, client: Client| async move {
-    //         debug!("ToDeviceKeyVerificationDoneEvent");
-    //         if let Some(Verification::SasV1(sas)) = client
-    //             .encryption()
-    //             .get_verification(&ev.sender, ev.content.transaction_id.as_str())
-    //             .await
-    //         {
-    //             if sas.is_done() {
-    //                 print_success(&sas);
-    //                 print_devices(&ev.sender, &client).await;
-    //             }
-    //         }
-    //     },
-    // );
-
-    // // removed Sept 2024, following matrix-rust-sdk/examples/emoji_verification
-    // client.add_event_handler(
-    //     |ev: OriginalSyncKeyVerificationStartEvent, client: Client| async move {
-    //         debug!("OriginalSyncKeyVerificationStartEvent");
-    //         if let Some(Verification::SasV1(sas)) = client
-    //             .encryption()
-    //             .get_verification(&ev.sender, ev.content.relates_to.event_id.as_str())
-    //             .await
-    //         {
-    //             println!(
-    //                 "Starting verification with {} {}",
-    //                 &sas.other_device().user_id(),
-    //                 &sas.other_device().device_id()
-    //             );
-    //             print_devices(&ev.sender, &client).await;
-    //             sas.accept().await.unwrap();
-    //         }
-    //     },
-    // );
-
-    // // removed Sept 2024, following matrix-rust-sdk/examples/emoji_verification
-    // client.add_event_handler(
-    //     |ev: OriginalSyncKeyVerificationKeyEvent, client: Client| async move {
-    //         debug!("OriginalSyncKeyVerificationKeyEvent");
-    //         if let Some(Verification::SasV1(sas)) = client
-    //             .encryption()
-    //             .get_verification(&ev.sender, ev.content.relates_to.event_id.as_str())
-    //             .await
-    //         {
-    //             tokio::spawn(sas_verification_handler(client, sas));
-    //         }
-    //     },
-    // );
-
-    // // removed Sept 2024, following matrix-rust-sdk/examples/emoji_verification
-    // client.add_event_handler(
-    //     |ev: OriginalSyncKeyVerificationDoneEvent, client: Client| async move {
-    //         debug!("OriginalSyncKeyVerificationDoneEvent");
-    //         if let Some(Verification::SasV1(sas)) = client
-    //             .encryption()
-    //             .get_verification(&ev.sender, ev.content.relates_to.event_id.as_str())
-    //             .await
-    //         {
-    //             if sas.is_done() {
-    //                 print_success(&sas);
-    //                 print_devices(&ev.sender, &client).await;
-    //             }
-    //         }
-    //     },
-    // );
-
-    // go into event loop to sync and to execute verify protocol
     println!("Ready and waiting ...");
     println!("Go to other Matrix client like Element and initiate Emoji verification there.");
     println!("Best to have the other Matrix client ready and waiting before you start");

@@ -23,8 +23,7 @@ use url::Url;
 
 use matrix_sdk::{
     attachment::AttachmentConfig,
-    authentication::{matrix::MatrixSession, SessionTokens},
-    config::{RequestConfig, StoreConfig, SyncSettings},
+    config::SyncSettings,
     media::{MediaFormat, MediaRequestParameters},
     room,
     room::{Room, RoomMember},
@@ -50,15 +49,13 @@ use matrix_sdk::{
         EventEncryptionAlgorithm, OwnedDeviceId, OwnedMxcUri, OwnedRoomAliasId, OwnedRoomId,
         OwnedUserId, RoomAliasId, RoomId, UserId,
     },
-    Client, RoomMemberships, SessionMeta,
+    Client, RoomMemberships,
 };
 use matrix_sdk_base::EncryptionState;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    credentials_exist, get_password, get_store_default_path, get_store_depreciated_default_path,
-    Args, Credentials, Error, Listen, Output, Sync,
-};
+use crate::get_password;
+use crate::{Args, Error, Output, Sync};
 
 // import verification code
 #[path = "emoji_verify.rs"]
@@ -317,178 +314,13 @@ pub(crate) fn convert_to_short_canonical_alias_ids(vecstr: &mut Vec<String>) {
     }
 }
 
-/// Constructor for Credentials.
-pub(crate) fn restore_credentials(ap: &Args) -> Result<Credentials, Error> {
-    if ap.credentials.is_file() {
-        let credentials = Credentials::load(&ap.credentials)?;
-        let mut credentialsfiltered = credentials.clone();
-        credentialsfiltered.access_token = "***".to_string();
-        debug!(
-            "restore_credentials: loaded credentials are: {:?}",
-            credentialsfiltered
-        );
-        Ok(credentials)
-    } else {
-        Err(Error::NoCredentialsFound)
-    }
-}
-
-/// Constructor for matrix-sdk async Client, based on restore_login().
-pub(crate) async fn restore_login(credentials: &Credentials, ap: &Args) -> Result<Client, Error> {
-    let clihomeserver = ap.homeserver.clone();
-    let homeserver = clihomeserver.unwrap_or_else(|| credentials.homeserver.clone());
-    info!(
-        "restoring device with device_id = {:?} on homeserver {:?}.",
-        &credentials.device_id, &homeserver
-    );
-
-    // let session: matrix_sdk::SessionMeta = credentials.clone().into();
-    let client = create_client(&homeserver, ap).await?;
-
-    // let auth = client.matrix_auth();
-    // debug!("Called matrix_auth()");
-    // debug!("matrix_auth() successful");
-
-    let msession = MatrixSession {
-        meta: SessionMeta {
-            user_id: credentials.user_id.clone(),
-            device_id: credentials.device_id.clone(),
-        },
-        tokens: SessionTokens {
-            access_token: credentials.access_token.clone(),
-            refresh_token: None,
-        },
-    };
-
-    let res = client.restore_session(msession.clone()).await;
-    match res {
-        Ok(_) => {
-            debug!("restore_session() successful.");
-            debug!(
-                "Logged in as {}, got device_id {} and access_token {}",
-                msession.clone().meta.user_id,
-                msession.clone().meta.device_id,
-                msession.clone().tokens.access_token,
-            );
-        }
-        Err(e) => {
-            error!(
-                "Error: Login failed because restore_session() failed. \
-                Error: {}",
-                e
-            );
-            return Err(Error::LoginFailed);
-        }
-    }
-
-    debug!("restore_login returned successfully. Logged in now.");
-    if ap.listen == Listen::Never {
-        sync_once(&client, ap.timeout, ap.sync).await?;
-    } else {
-        info!("Skipping sync due to --listen");
-    }
-    Ok(client)
-}
-
-/// Constructor for matrix-sdk async Client, based on login_username().
-pub(crate) async fn login(
-    ap: &mut Args,
-    homeserver: &Url,
-    username: &str,
-    password: &str,
-    device: &str,
-    room_default: &str,
-) -> Result<(Client, Credentials), Error> {
-    let client = create_client(homeserver, ap).await?;
-    debug!("About to call login_username()");
-    // we need to log in.
-    let response = client
-        .matrix_auth()
-        .login_username(username, password)
-        .initial_device_display_name(device)
-        .send()
-        .await;
-    debug!("Called login_username()");
-
-    match response {
-        Ok(n) => debug!("login_username() successful with response {:?}.", n),
-        Err(e) => {
-            error!("Error: {}", e);
-            return Err(Error::LoginFailed);
-        }
-    }
-    let _ = client
-        .session()
-        .expect("Error: client not logged in correctly. No session.");
-    info!("device id = {}", client.session_meta().unwrap().device_id);
-    info!("credentials file = {:?}", ap.credentials);
-
-    let credentials = Credentials::new(
-        homeserver.clone(),
-        client.session_meta().unwrap().user_id.clone(),
-        client.access_token().unwrap(),
-        client.session_meta().unwrap().device_id.clone(),
-        room_default.to_string(),
-        client
-            .session_tokens()
-            .and_then(|t| t.refresh_token.clone()),
-    );
-    credentials.save(&ap.credentials)?;
-    // sync is needed even when --login is used,
-    // because after --login argument, arguments like -m or --rooms might
-    // be used, e.g. in the login-fire-off-a-msg-and-forget scenario
-    if ap.listen == Listen::Never {
-        sync_once(&client, ap.timeout, ap.sync).await?;
-    } else {
-        info!("Skipping sync due to --listen");
-    }
-    Ok((client, credentials))
-}
-
-/// Prepares a client that can then be used for actual login.
-/// Configures the matrix-sdk async Client.
-async fn create_client(homeserver: &Url, ap: &Args) -> Result<Client, Error> {
-    // The location to save files to
-    let sqlitestorehome = &ap.store;
-    // remove in version 0.5 : todo
-    // Incompatibility between v0.4 and v0.3-
-    debug!(
-        "Compare store names: {:?} {:?}",
-        ap.store,
-        get_store_default_path()
-    );
-    if ap.store == get_store_default_path()
-        && !get_store_default_path().exists()
-        && get_store_depreciated_default_path().exists()
-    {
-        warn!(
-            "In order to correct incompatibility in version v0.4 the \
-            directory {:?} will be renamed to {:?}.",
-            get_store_depreciated_default_path(),
-            get_store_default_path()
-        );
-        fs::rename(
-            get_store_depreciated_default_path(),
-            get_store_default_path(),
-        )?;
-    }
-    info!("Using sqlite store {:?}", &sqlitestorehome);
-    // let builder = if let Some(proxy) = cli.proxy { builder.proxy(proxy) } else { builder };
-    let builder = Client::builder()
-        .homeserver_url(homeserver)
-        .store_config(StoreConfig::new("mc.conf".to_owned()))
-        .request_config(RequestConfig::new().timeout(Duration::from_secs(ap.timeout)));
-    let client = builder
-        .sqlite_store(sqlitestorehome, None)
-        .build()
-        .await
-        .expect("Error: ClientBuilder build failed. Error: cannot add store to ClientBuilder."); // no password for store!
-    Ok(client)
-}
-
 /// Does bootstrap cross signing
 pub(crate) async fn bootstrap(client: &Client, ap: &mut Args) -> Result<(), Error> {
-    let userid = &ap.creds.as_ref().unwrap().user_id.clone();
+    let userid = client
+        .user_id()
+        .map(|u| u.to_owned())
+        .ok_or(Error::NotLoggedIn)?;
+    let userid = &userid;
     get_password(ap);
     if let Some(password) = &ap.password {
         let mut css = client.encryption().cross_signing_status().await;
@@ -529,8 +361,16 @@ pub(crate) async fn bootstrap(client: &Client, ap: &mut Args) -> Result<(), Erro
 
 /// Does verification
 pub(crate) async fn verify(client: &Client, ap: &Args) -> Result<(), Error> {
-    let userid = &ap.creds.as_ref().unwrap().user_id.clone();
-    let deviceid = &ap.creds.as_ref().unwrap().device_id.clone();
+    let userid = client
+        .user_id()
+        .map(|u| u.to_owned())
+        .ok_or(Error::NotLoggedIn)?;
+    let userid = &userid;
+    let deviceid = client
+        .device_id()
+        .map(|d| d.to_owned())
+        .ok_or(Error::NotLoggedIn)?;
+    let deviceid = &deviceid;
     debug!("Client logged in: {}", client.is_active());
     debug!("Client user id: {}", userid);
     debug!("Client device id: {}", deviceid);
@@ -660,22 +500,8 @@ pub(crate) async fn logout(client: &Client, ap: &Args) -> Result<(), Error> {
 
 /// Only logs out locally, doesn't go to server.
 pub(crate) fn logout_local(ap: &Args) -> Result<(), Error> {
-    if credentials_exist(ap) {
-        match fs::remove_file(&ap.credentials) {
-            Ok(()) => info!(
-                "Credentials file successfully removed {:?}",
-                &ap.credentials
-            ),
-            Err(e) => error!(
-                "Error: credentials file not removed. {:?} {:?}",
-                &ap.credentials, e
-            ),
-        }
-    } else {
-        warn!("Credentials file does not exist {:?}", &ap.credentials)
-    }
     match fs::remove_dir_all(&ap.store) {
-        Ok(()) => info!("Store directory successfully remove {:?}", &ap.store),
+        Ok(()) => info!("Store directory successfully removed {:?}", &ap.store),
         Err(e) => error!(
             "Error: Store directory not removed. {:?} {:?}",
             &ap.store, e
@@ -2338,7 +2164,10 @@ pub(crate) async fn delete_devices_pre(client: &Client, ap: &mut Args) -> Result
             let mut hasstar = false;
             for i in &mut ap.delete_device {
                 if i.to_lowercase() == "me" {
-                    *i = ap.creds.as_ref().unwrap().device_id.to_string();
+                    *i = client
+                        .device_id()
+                        .map(|d| d.to_string())
+                        .unwrap_or_default();
                 }
                 if i == "*" {
                     hasstar = true;
