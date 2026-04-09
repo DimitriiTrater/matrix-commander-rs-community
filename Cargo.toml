@@ -56,12 +56,19 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 update-informer = "1.2"
 url = { version = "2.5", features = ["serde"] }
+dirs = "6.0.0"
+open = "5.3.3"
+shellexpand = "3.1.2"
 
 
 [dev-dependencies]
 # "matrix-commander-rs" will be the Rust program
 # to perform tests on async functions
 tokio-test = "0.4"
+# temporary files and directories for tests
+tempfile = "3"
+# HTTP mock server for integration tests that need a Matrix client
+wiremock = "0.6"
 
 # this is to distinguish it from "matrix-commander" which is the Python program
 # For people that have both Python and Rust installed:
