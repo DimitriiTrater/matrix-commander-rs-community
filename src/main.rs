@@ -48,12 +48,12 @@ use regex::Regex;
 use rpassword::read_password;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::{env, process};
 use std::fmt::{self, Debug};
 use std::fs::{self, File};
 use std::io::{self, stdin, stdout, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{env, process};
 use thiserror::Error;
 use tracing::{debug, enabled, error, info, warn, Level};
 use tracing_subscriber::EnvFilter;
@@ -87,7 +87,7 @@ use crate::mclient::{
     replace_star_with_rooms, restore_credentials, restore_login, room_ban, room_create,
     room_enable_encryption, room_forget, room_get_state, room_get_visibility, room_invite,
     room_join, room_kick, room_leave, room_resolve_alias, room_unban, rooms, set_avatar,
-    set_avatar_url, set_display_name, unset_avatar_url, verify,
+    set_avatar_url, set_display_name, unset_avatar_url, verify, MessageOptions,
 };
 
 // import matrix-sdk Client related code related to receiving messages and listening
@@ -326,13 +326,13 @@ impl Login {
 impl FromStr for Login {
     type Err = ();
     fn from_str(src: &str) -> Result<Login, ()> {
-        return match src.to_lowercase().trim() {
+        match src.to_lowercase().trim() {
             "none" => Ok(Login::None),
             "password" => Ok(Login::Password),
             "access_token" | "access-token" | "accesstoken" => Ok(Login::AccessToken),
             "sso" => Ok(Login::Sso),
             _ => Err(()),
-        };
+        }
     }
 }
 
@@ -375,11 +375,11 @@ impl Sync {
 impl FromStr for Sync {
     type Err = ();
     fn from_str(src: &str) -> Result<Sync, ()> {
-        return match src.to_lowercase().trim() {
+        match src.to_lowercase().trim() {
             "off" => Ok(Sync::Off),
             "full" => Ok(Sync::Full),
             _ => Err(()),
-        };
+        }
     }
 }
 
@@ -400,7 +400,7 @@ enum Version {
     Check,
 }
 
-/// is_ functions for the enum
+// /// is_ functions for the enum
 // impl Version {
 //     pub fn is_check(&self) -> bool {
 //         self == &Self::Check
@@ -411,10 +411,10 @@ enum Version {
 impl FromStr for Version {
     type Err = ();
     fn from_str(src: &str) -> Result<Version, ()> {
-        return match src.to_lowercase().trim() {
+        match src.to_lowercase().trim() {
             "check" => Ok(Version::Check),
             _ => Err(()),
-        };
+        }
     }
 }
 
@@ -468,14 +468,14 @@ impl Verify {
 impl FromStr for Verify {
     type Err = ();
     fn from_str(src: &str) -> Result<Verify, ()> {
-        return match src.to_lowercase().trim() {
+        match src.to_lowercase().trim() {
             "none" => Ok(Verify::None),
             "manual-device" => Ok(Verify::ManualDevice),
             "manual-user" => Ok(Verify::ManualUser),
             "emoji" => Ok(Verify::Emoji),
             "emoji-req" => Ok(Verify::EmojiReq),
             _ => Err(()),
-        };
+        }
     }
 }
 
@@ -517,12 +517,12 @@ impl Logout {
 impl FromStr for Logout {
     type Err = ();
     fn from_str(src: &str) -> Result<Logout, ()> {
-        return match src.to_lowercase().trim() {
+        match src.to_lowercase().trim() {
             "none" => Ok(Logout::None),
             "me" => Ok(Logout::Me),
             "all" => Ok(Logout::All),
             _ => Err(()),
-        };
+        }
     }
 }
 
@@ -579,14 +579,14 @@ impl Listen {
 impl FromStr for Listen {
     type Err = ();
     fn from_str(src: &str) -> Result<Listen, ()> {
-        return match src.to_lowercase().trim() {
+        match src.to_lowercase().trim() {
             "never" => Ok(Listen::Never),
             "once" => Ok(Listen::Once),
             "forever" => Ok(Listen::Forever),
             "tail" => Ok(Listen::Tail),
             "all" => Ok(Listen::All),
             _ => Err(()),
-        };
+        }
     }
 }
 
@@ -2410,17 +2410,24 @@ pub fn version(output: Output) {
     let repo = get_pkg_repository();
     match output {
         Output::Text => {
-            let colored = if stdout().is_terminal() { version.green() } else { version.normal() };
+            let colored = if stdout().is_terminal() {
+                version.green()
+            } else {
+                version.normal()
+            };
             println!();
             println!("  _|      _|      _|_|_|                     {}", program);
             print!("  _|_|  _|_|    _|             _~^~^~_       ");
             println!("a rusty vision of a Matrix CLI client");
-            println!("  _|  _|  _|    _|         \\) /  o o  \\ (/   version {}", colored);
+            println!(
+                "  _|  _|  _|    _|         \\) /  o o  \\ (/   version {}",
+                colored
+            );
             println!("  _|      _|    _|           '_   -   _'     repo {}", repo);
             print!("  _|      _|      _|_|_|     / '-----' \\     ");
             println!("please submit PRs to make the vision a reality");
             println!();
-        },
+        }
         Output::Json | Output::JsonMax => {
             let info = json!({
                 "program" : program,
@@ -2428,7 +2435,7 @@ pub fn version(output: Output) {
                 "repo" : repo,
             });
             println!("{}", serde_json::to_string(&info).unwrap())
-        },
+        }
         Output::JsonSpec => (),
     }
 }
@@ -2874,11 +2881,13 @@ pub(crate) async fn cli_message(client: &Client, ap: &Args) -> Result<(), Error>
                                 client,
                                 &[line],
                                 &ap.room,
-                                ap.code,
-                                ap.markdown,
-                                ap.notice,
-                                ap.emote,
-                                ap.html,
+                                &MessageOptions {
+                                    code: ap.code,
+                                    markdown: ap.markdown,
+                                    notice: ap.notice,
+                                    emote: ap.emote,
+                                    html: ap.html,
+                                },
                             )
                             .await
                             {
@@ -2922,11 +2931,13 @@ pub(crate) async fn cli_message(client: &Client, ap: &Args) -> Result<(), Error>
         client,
         &fmsgs,
         &ap.room,
-        ap.code,
-        ap.markdown,
-        ap.notice,
-        ap.emote,
-        ap.html,
+        &MessageOptions {
+            code: ap.code,
+            markdown: ap.markdown,
+            notice: ap.notice,
+            emote: ap.emote,
+            html: ap.html,
+        },
     )
     .await // returning
 }
@@ -3051,7 +3062,7 @@ pub(crate) fn cli_whoami(ap: &Args) -> Result<(), Error> {
                 "user_id" : whoami,
             });
             println!("{}", serde_json::to_string(&info)?);
-        },
+        }
     }
     Ok(())
 }

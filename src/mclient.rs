@@ -12,19 +12,19 @@
 
 use mime::Mime;
 use std::borrow::Cow;
-use std::io::{self, Read, Write};
 use std::fs;
 use std::fs::File;
+use std::io::{self, Read, Write};
 use std::io::{stdin, IsTerminal};
 use std::path::PathBuf;
+use std::time::Duration;
 use tracing::{debug, error, info, warn};
 use url::Url;
-use std::time::Duration;
 
 use matrix_sdk::{
     attachment::AttachmentConfig,
-    config::{RequestConfig, StoreConfig, SyncSettings},
     authentication::{matrix::MatrixSession, SessionTokens},
+    config::{RequestConfig, StoreConfig, SyncSettings},
     media::{MediaFormat, MediaRequestParameters},
     room,
     room::{Room, RoomMember},
@@ -36,11 +36,8 @@ use matrix_sdk::{
         events::room::encryption::RoomEncryptionEventContent,
         events::room::member::RoomMemberEventContent,
         events::room::message::{
-            EmoteMessageEventContent,
-            MessageType,
-            NoticeMessageEventContent,
-            RoomMessageEventContent,
-            TextMessageEventContent,
+            EmoteMessageEventContent, MessageType, NoticeMessageEventContent,
+            RoomMessageEventContent, TextMessageEventContent,
         },
         events::room::name::RoomNameEventContent,
         events::room::power_levels::RoomPowerLevelsEventContent,
@@ -50,22 +47,13 @@ use matrix_sdk::{
         events::EmptyStateKey,
         events::InitialStateEvent,
         serde::Raw,
-        EventEncryptionAlgorithm,
-        OwnedDeviceId,
-        OwnedMxcUri,
-        OwnedRoomAliasId,
-        OwnedRoomId,
-        OwnedUserId,
-        RoomAliasId,
-        RoomId,
-        UserId,
+        EventEncryptionAlgorithm, OwnedDeviceId, OwnedMxcUri, OwnedRoomAliasId, OwnedRoomId,
+        OwnedUserId, RoomAliasId, RoomId, UserId,
     },
-    Client,
-    RoomMemberships,
-    SessionMeta,
+    Client, RoomMemberships, SessionMeta,
 };
 use matrix_sdk_base::EncryptionState;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     credentials_exist, get_password, get_store_default_path, get_store_depreciated_default_path,
@@ -403,8 +391,8 @@ pub(crate) async fn restore_login(credentials: &Credentials, ap: &Args) -> Resul
 }
 
 /// Constructor for matrix-sdk async Client, based on login_username().
-pub(crate) async fn login<'a>(
-    ap: &'a mut Args,
+pub(crate) async fn login(
+    ap: &mut Args,
     homeserver: &Url,
     username: &str,
     password: &str,
@@ -441,7 +429,9 @@ pub(crate) async fn login<'a>(
         client.access_token().unwrap(),
         client.session_meta().unwrap().device_id.clone(),
         room_default.to_string(),
-        client.session_tokens().and_then(|t| t.refresh_token.clone()),
+        client
+            .session_tokens()
+            .and_then(|t| t.refresh_token.clone()),
     );
     credentials.save(&ap.credentials)?;
     // sync is needed even when --login is used,
@@ -487,10 +477,7 @@ async fn create_client(homeserver: &Url, ap: &Args) -> Result<Client, Error> {
     let builder = Client::builder()
         .homeserver_url(homeserver)
         .store_config(StoreConfig::new("mc.conf".to_owned()))
-        .request_config(
-            RequestConfig::new()
-                .timeout(Duration::from_secs(ap.timeout))
-        );
+        .request_config(RequestConfig::new().timeout(Duration::from_secs(ap.timeout)));
     let client = builder
         .sqlite_store(sqlitestorehome, None)
         .build()
@@ -895,7 +882,7 @@ pub(crate) async fn get_display_name(client: &Client, output: Output) -> Result<
 /// Set display name of the current user.
 pub(crate) async fn set_display_name(
     client: &Client,
-    name: &String,
+    name: &str,
     _output: Output,
 ) -> Result<(), Error> {
     debug!("Set display name of current user");
@@ -912,8 +899,14 @@ pub(crate) async fn get_profile(client: &Client, output: Output) -> Result<(), E
     debug!("Get profile from server");
     if let Ok(profile) = client.account().fetch_user_profile().await {
         debug!("Profile successfully. Profile {:?}", profile);
-        let display_name = profile.get("displayname").and_then(|d| d.as_str()).unwrap_or("");
-        let avatar_url = profile.get("avatarUrl").and_then(|a| a.as_str()).unwrap_or("");
+        let display_name = profile
+            .get("displayname")
+            .and_then(|d| d.as_str())
+            .unwrap_or("");
+        let avatar_url = profile
+            .get("avatarUrl")
+            .and_then(|a| a.as_str())
+            .unwrap_or("");
         print_json(
             &json::object!(display_name: display_name, avatar_url: avatar_url),
             output,
@@ -1165,8 +1158,8 @@ pub(crate) fn print_rooms(
         }
         Some(matrix_sdk::RoomState::Left) => {
             print_common_rooms(client.left_rooms(), output);
-        },
-        Some(matrix_sdk::RoomState::Knocked) | Some(matrix_sdk::RoomState::Banned) => todo!()
+        }
+        Some(matrix_sdk::RoomState::Knocked) | Some(matrix_sdk::RoomState::Banned) => todo!(),
     };
     Ok(())
 }
@@ -1270,10 +1263,7 @@ pub(crate) async fn room_create(
             //     pub visibility: Visibility,  }
             let content =
                 RoomEncryptionEventContent::new(EventEncryptionAlgorithm::MegolmV1AesSha2);
-            let initstateev = InitialStateEvent::new(
-                EmptyStateKey,
-                content
-            );
+            let initstateev = InitialStateEvent::new(EmptyStateKey, content);
             let rawinitstateev = Raw::new(&initstateev)?;
             // let anyinitstateev: AnyInitialStateEvent =
             //     matrix_sdk::ruma::events::AnyInitialStateEvent::RoomEncryption(initstateev);
@@ -1886,7 +1876,7 @@ fn print_room_visibility(room_id: &OwnedRoomId, room: &Room, output: Output) {
             println!(
                 "Room:    {:?}    {:?}",
                 room_id,
-                if let Some(_) = room.is_public() {
+                if room.is_public().is_some() {
                     "public"
                 } else {
                     "private"
@@ -2101,9 +2091,9 @@ fn print_room_members(room_id: &OwnedRoomId, members: &[RoomMember], output: Out
                     "Room:    {:?}    Member:    {:?}    {:?}    {:?}    {:?}    {:?}    \"{}\"",
                     room_id,
                     m.user_id(),
-                    m.display_name().as_deref().unwrap_or(""),
+                    m.display_name().unwrap_or(""),
                     m.name(),
-                    m.avatar_url().as_deref().unwrap_or("".into()),
+                    m.avatar_url().unwrap_or("".into()),
                     m.power_level(),
                     m.membership(),
                 )
@@ -2428,17 +2418,28 @@ pub(crate) async fn delete_devices(
     }
 }
 
+/// Options that control the format and type of a text message.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct MessageOptions {
+    /// Wrap the message in a Markdown code block.
+    pub(crate) code: bool,
+    /// Render the message as Markdown.
+    pub(crate) markdown: bool,
+    /// Send the message as an `m.notice`.
+    pub(crate) notice: bool,
+    /// Send the message as an `m.emote`.
+    pub(crate) emote: bool,
+    /// Treat the message body as HTML.
+    pub(crate) html: bool,
+}
+
 /// Send one or more text message
 /// supporting various formats and types.
 pub(crate) async fn message(
     client: &Client,
     msgs: &[String],
     roomnames: &[String],
-    code: bool,
-    markdown: bool,
-    notice: bool,
-    emote: bool,
-    html: bool,
+    opts: &MessageOptions,
 ) -> Result<(), Error> {
     debug!(
         "In message(): roomnames are {:?}, msgs are {:?}",
@@ -2450,7 +2451,7 @@ pub(crate) async fn message(
     let mut fmsgs: Vec<MessageType> = Vec::new(); // formatted msgs
     let mut fmt_msg: String;
     for msg in msgs.iter() {
-        let (nmsg, md) = if code {
+        let (nmsg, md) = if opts.code {
             fmt_msg = String::from("```");
             // fmt_msg.push_str("name-of-language");  // Todo
             fmt_msg.push('\n');
@@ -2461,21 +2462,21 @@ pub(crate) async fn message(
             fmt_msg.push_str("```");
             (&fmt_msg, true)
         } else {
-            (msg, markdown)
+            (msg, opts.markdown)
         };
 
-        let fmsg = if notice {
+        let fmsg = if opts.notice {
             MessageType::Notice(if md {
                 NoticeMessageEventContent::markdown(nmsg)
-            } else if html {
+            } else if opts.html {
                 NoticeMessageEventContent::html(nmsg, nmsg)
             } else {
                 NoticeMessageEventContent::plain(nmsg)
             })
-        } else if emote {
+        } else if opts.emote {
             MessageType::Emote(if md {
                 EmoteMessageEventContent::markdown(nmsg)
-            } else if html {
+            } else if opts.html {
                 EmoteMessageEventContent::html(nmsg, nmsg)
             } else {
                 EmoteMessageEventContent::plain(nmsg)
@@ -2483,7 +2484,7 @@ pub(crate) async fn message(
         } else {
             MessageType::Text(if md {
                 TextMessageEventContent::markdown(nmsg)
-            } else if html {
+            } else if opts.html {
                 TextMessageEventContent::html(nmsg, nmsg)
             } else {
                 TextMessageEventContent::plain(nmsg)

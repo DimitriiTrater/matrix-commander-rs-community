@@ -668,9 +668,7 @@ pub(crate) async fn listen_tail(
                                 SyncMessageLikeEvent::Original(orginialmessagelikeevent) => {
                                     let room_id = roomid.clone();
                                     let orginialsyncmessagelikeevent =
-                                        OriginalSyncMessageLikeEvent::from(
-                                            orginialmessagelikeevent,
-                                        );
+                                        orginialmessagelikeevent;
                                     handle_originalsyncmessagelikeevent(
                                         &orginialsyncmessagelikeevent,
                                         &room_id,
