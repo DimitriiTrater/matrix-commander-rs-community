@@ -11,6 +11,9 @@
 
 use tracing::{debug, error, info, warn};
 
+/// Declare the items used from main.rs
+use crate::{Error, Output};
+use matrix_sdk::ruma::events::{AnySyncMessageLikeEvent, AnySyncTimelineEvent};
 use matrix_sdk::{
     config::SyncSettings,
     event_handler::Ctx,
@@ -21,38 +24,20 @@ use matrix_sdk::{
             filter::{FilterDefinition, RoomEventFilter, RoomFilter},
             sync::sync_events::v3::Filter,
         },
-        events::room::encrypted::{
-            OriginalSyncRoomEncryptedEvent,
-            SyncRoomEncryptedEvent,
-        },
+        events::room::encrypted::{OriginalSyncRoomEncryptedEvent, SyncRoomEncryptedEvent},
         events::room::message::{
-            AudioMessageEventContent,
-            FileMessageEventContent,
-            ImageMessageEventContent,
-            MessageType,
-            RedactedSyncRoomMessageEvent,
-            RoomMessageEventContent,
-            SyncRoomMessageEvent,
-            TextMessageEventContent,
-            VideoMessageEventContent,
+            AudioMessageEventContent, FileMessageEventContent, ImageMessageEventContent,
+            MessageType, RedactedSyncRoomMessageEvent, RoomMessageEventContent,
+            SyncRoomMessageEvent, TextMessageEventContent, VideoMessageEventContent,
         },
         events::room::redaction::{
             OriginalSyncRoomRedactionEvent, RedactedSyncRoomRedactionEvent, SyncRoomRedactionEvent,
         },
-        events::{
-            OriginalSyncMessageLikeEvent,
-            SyncMessageLikeEvent,
-        },
-        OwnedRoomId,
-        OwnedUserId,
-        RoomId,
-        UInt,
+        events::{OriginalSyncMessageLikeEvent, SyncMessageLikeEvent},
+        OwnedRoomId, OwnedUserId, RoomId, UInt,
     },
     Client,
 };
-use matrix_sdk::ruma::events::{AnySyncMessageLikeEvent, AnySyncTimelineEvent};
-/// Declare the items used from main.rs
-use crate::{Error, Output};
 
 /// Lower-level utility function to handle originalsyncmessagelikeevent
 fn handle_originalsyncmessagelikeevent(
@@ -667,8 +652,7 @@ pub(crate) async fn listen_tail(
                             match messagelikeevent {
                                 SyncMessageLikeEvent::Original(orginialmessagelikeevent) => {
                                     let room_id = roomid.clone();
-                                    let orginialsyncmessagelikeevent =
-                                        orginialmessagelikeevent;
+                                    let orginialsyncmessagelikeevent = orginialmessagelikeevent;
                                     handle_originalsyncmessagelikeevent(
                                         &orginialsyncmessagelikeevent,
                                         &room_id,

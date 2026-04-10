@@ -1,6 +1,6 @@
+use clap::ValueEnum;
 use std::fmt;
 use std::str::FromStr;
-use clap::ValueEnum;
 
 /// Enumerator used for --output option
 #[derive(Clone, Debug, Copy, PartialEq, Default, ValueEnum)]
