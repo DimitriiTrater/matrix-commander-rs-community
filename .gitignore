@@ -24,4 +24,6 @@ README.md.*
 # ignore a local copy of the compiled binary
 matrix-commander-rs*
 
+.zed
+.idea
 
