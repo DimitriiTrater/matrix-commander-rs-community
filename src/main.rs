@@ -13,10 +13,6 @@
 //! Matrix account, verify your new devices, and send encrypted
 //! (or not-encrypted) messages and files on the Matrix network.
 //!
-//! For building from source in Rust you require the
-//! OpenSsl development library. Install it first, e.g. on
-//! Fedora you would `sudo dnf install openssl-devel` or on
-//! Ubuntu you would `sudo apt install libssl-dev`.
 //!
 //! Please help improve the code and add features  :pray:  :clap:
 //!
@@ -87,6 +83,8 @@ use crate::output::Output;
 mod login;
 
 mod settings;
+
+use crate::settings::{SessionJson, SqliteStore};
 
 mod base;
 use crate::base::{
@@ -1481,24 +1479,33 @@ pub(crate) async fn cli_delete_device(client: &Client, ap: &mut Args) -> Result<
 }
 
 /// Handle the --logout CLI argument
-pub(crate) async fn cli_logout(client: &Client, ap: &mut Args) -> Result<(), Error> {
+pub(crate) async fn cli_logout(
+    client: &Client,
+    ap: &mut Args,
+    session_json: SessionJson,
+    sqlite_store: SqliteStore,
+) -> Result<(), Error> {
     info!("Logout chosen.");
-    if ap.logout.is_none() {
-        return Ok(());
-    }
-    if ap.logout.is_all() {
-        // delete_device list will be overwritten, but that is okay because
-        // logout is the last function in main.
-        ap.delete_device = vec!["*".to_owned()];
-        match cli_delete_device(client, ap).await {
-            Ok(_) => info!("Logout caused all devices to be deleted."),
-            Err(e) => error!(
-                "Error: Failed to delete all devices, but we remove local device id anyway. {:?}",
-                e
-            ),
+    match ap.logout {
+        Logout::None => Ok(()),
+        Logout::Me => crate::logout(client, ap, session_json, sqlite_store).await,
+        Logout::All => {
+            ap.delete_device = vec!["*".to_owned()];
+            match cli_delete_device(client, ap).await {
+                Ok(_) => {
+                    info!("Logout caused all devices to be deleted.");
+                    Ok(())
+                }
+                Err(e) => {
+                    error!(
+                        "Error: Failed to delete all devices, but we remove local device id anyway. {:?}",
+                        e
+                    );
+                    Err(e)
+                }
+            }
         }
     }
-    crate::logout(client, ap).await
 }
 
 const DEFAULT_ENCRYPTION_SETTINGS: EncryptionSettings = EncryptionSettings {
@@ -2408,8 +2415,11 @@ async fn main() -> Result<(), Error> {
             };
         };
 
+        let session_json = SessionJson(settings.session_json);
+        let sqlite_store = SqliteStore(settings.sqlite_dir);
+
         if !ap.logout.is_none() {
-            match crate::cli_logout(client, &mut ap).await {
+            match crate::cli_logout(client, &mut ap, session_json, sqlite_store).await {
                 Ok(ref _n) => debug!("crate::logout successful"),
                 Err(e) => {
                     error!("Error: crate::logout reported {}", e);
