@@ -171,6 +171,11 @@ impl MCRSConfig {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct SessionJson(pub PathBuf);
+#[derive(Debug, Clone)]
+pub struct SqliteStore(pub PathBuf);
+
 #[derive(Clone, Debug)]
 pub struct Settings {
     pub session_json: PathBuf,

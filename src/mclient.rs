@@ -55,6 +55,7 @@ use matrix_sdk_base::EncryptionState;
 use serde::{Deserialize, Serialize};
 
 use crate::get_password;
+use crate::settings::{SessionJson, SqliteStore};
 use crate::{Args, Error, Output, Sync};
 
 // import verification code
@@ -492,19 +493,32 @@ pub(crate) async fn verify(client: &Client, ap: &Args) -> Result<(), Error> {
 }
 
 /// Logs out, destroying the device and removing credentials file
-pub(crate) async fn logout(client: &Client, ap: &Args) -> Result<(), Error> {
+pub(crate) async fn logout(
+    client: &Client,
+    ap: &Args,
+    session_json: SessionJson,
+    sql_store: SqliteStore,
+) -> Result<(), Error> {
     debug!("Logout on client");
     logout_server(client, ap).await?;
-    logout_local(ap)
+    info!("logout server complited");
+    logout_local(session_json, sql_store)
 }
 
 /// Only logs out locally, doesn't go to server.
-pub(crate) fn logout_local(ap: &Args) -> Result<(), Error> {
-    match fs::remove_dir_all(&ap.store) {
-        Ok(()) => info!("Store directory successfully removed {:?}", &ap.store),
+pub(crate) fn logout_local(session_json: SessionJson, sql_store: SqliteStore) -> Result<(), Error> {
+    match fs::remove_file(&session_json.0) {
+        Ok(()) => info!("Store directory successfully removed {:?}", &session_json.0),
         Err(e) => error!(
             "Error: Store directory not removed. {:?} {:?}",
-            &ap.store, e
+            &session_json.0, e
+        ),
+    }
+    match fs::remove_dir_all(&sql_store.0) {
+        Ok(()) => info!("Store directory successfully removed {:?}", &sql_store.0),
+        Err(e) => error!(
+            "Error: Store directory not removed. {:?} {:?}",
+            &sql_store.0, e
         ),
     }
     Ok(())
