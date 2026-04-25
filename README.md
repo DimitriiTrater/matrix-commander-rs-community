@@ -61,7 +61,6 @@ Safe!
   This will give exposure and help find people willing to provide code,
   contributions, and PRs.
 - Write code yourself. :rocket: Features that you might want to code: 
-  - implement `login` via SSO
   - add --proxy (see Python documentation)
   - add --nossl (see Python documentation)
   - add --event (see Python documentation and JSON config file in Pythom repo)
