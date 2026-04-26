@@ -53,7 +53,7 @@ pub enum MCRSError {
 /// The default path might not be the actual path as it can be overwritten with command line
 /// options.
 pub fn get_store_default_path() -> PathBuf {
-    let dir = ProjectDirs::from_path(PathBuf::from(get_prog_without_ext())).unwrap();
+    let dir = ProjectDirs::from_path(PathBuf::from(MCRS_DEVICE_NAME.to_string())).unwrap();
     let dp = dir.data_dir().join(STORE_DIR_DEFAULT);
     dp
 }

@@ -20,7 +20,7 @@ jobs:
         name: Format check
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - name: Install stable toolchain with rustfmt
               uses: dtolnay/rust-toolchain@stable
@@ -38,7 +38,7 @@ jobs:
         runs-on: ubuntu-latest
         continue-on-error: true
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - name: Install stable toolchain with clippy
               uses: dtolnay/rust-toolchain@stable
@@ -55,7 +55,7 @@ jobs:
         name: Test suite
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - name: Install stable toolchain
               uses: dtolnay/rust-toolchain@stable
@@ -70,7 +70,7 @@ jobs:
         name: Build binary
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - name: Install stable toolchain
               uses: dtolnay/rust-toolchain@stable
@@ -82,7 +82,7 @@ jobs:
               run: cargo build --locked --release --bin matrix-commander-rs
 
             - name: Upload binary artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: matrix-commander-rs-linux-x86_64
                   path: target/release/matrix-commander-rs
