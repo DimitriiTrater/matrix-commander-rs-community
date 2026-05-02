@@ -43,7 +43,7 @@ mime = "0.3"
 mime_guess = "2.0"
 
 regex = "1.11"
-reqwest = "0.13.2"
+reqwest = "0.13.3"
 rpassword = "7.4"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
