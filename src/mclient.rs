@@ -901,11 +901,11 @@ pub(crate) fn print_json(json_data: &json::JsonValue, output: Output, obfuscate:
 }
 
 /// Utility function to print Common room info
-pub(crate) fn print_common_room(room: &room::Room, output: Output) {
+pub(crate) async fn print_common_room(room: &room::Room, output: Output) {
     debug!("common room: {:?}", room);
     match output {
         Output::Text => println!(
-            "Room:    {:?}    {}    {:?}    {}    {:?}    {:?}",
+            "Room:    {:?}    {}    {:?}    {}    {:?}    {:?}   {:?}",
             room.room_id(),
             serde_json::to_string(&room.clone_info().room_type())
                 .unwrap_or_else(|_| r#""""#.to_string()), // serialize, empty string as default
@@ -914,7 +914,7 @@ pub(crate) fn print_common_room(room: &room::Room, output: Output) {
             serde_json::to_string(&room.alt_aliases()).unwrap_or_else(|_| r#"[]"#.to_string()), // serialize, empty array as default
             room.name().unwrap_or_default(),
             room.topic().unwrap_or_default(),
-            // room.display_name() // this call would go to the server
+            room.display_name().await.unwrap() // this call would go to the server
         ),
         Output::JsonSpec => (),
         _ => {
@@ -945,12 +945,15 @@ pub(crate) fn print_common_room(room: &room::Room, output: Output) {
 }
 
 /// Utility function to print Common room info of multiple rooms
-pub(crate) fn print_common_rooms(rooms: Vec<room::Room>, output: Output) {
+pub(crate) async fn print_common_rooms(rooms: Vec<room::Room>, output: Output) {
     debug!("common rooms: {:?}", rooms);
     match output {
         Output::Text => {
+            println!(
+                "Room:    roomId    roomType    canonicalAlias    altAliases    name    topic"
+            );
             for r in rooms {
-                print_common_room(&r, output)
+                print_common_room(&r, output).await;
             }
         }
         Output::JsonSpec => (),
@@ -979,7 +982,7 @@ pub(crate) fn print_common_rooms(rooms: Vec<room::Room>, output: Output) {
 }
 
 /// Print list of rooms of a given type (invited, joined, left, all) of the current user.
-pub(crate) fn print_rooms(
+pub(crate) async fn print_rooms(
     client: &Client,
     rooms: Option<matrix_sdk::RoomState>, // None is the default and prints all 3 types of rooms
     output: Output,
@@ -988,16 +991,16 @@ pub(crate) fn print_rooms(
     match rooms {
         None => {
             // ALL rooms, default
-            print_common_rooms(client.rooms(), output);
+            print_common_rooms(client.rooms(), output).await;
         }
         Some(matrix_sdk::RoomState::Invited) => {
-            print_common_rooms(client.invited_rooms(), output);
+            print_common_rooms(client.invited_rooms(), output).await;
         }
         Some(matrix_sdk::RoomState::Joined) => {
-            print_common_rooms(client.joined_rooms(), output);
+            print_common_rooms(client.joined_rooms(), output).await;
         }
         Some(matrix_sdk::RoomState::Left) => {
-            print_common_rooms(client.left_rooms(), output);
+            print_common_rooms(client.left_rooms(), output).await;
         }
         Some(matrix_sdk::RoomState::Knocked) | Some(matrix_sdk::RoomState::Banned) => todo!(),
     };
@@ -1007,25 +1010,25 @@ pub(crate) fn print_rooms(
 /// Print list of all rooms (invited, joined, left) of the current user.
 pub(crate) async fn rooms(client: &Client, output: Output) -> Result<(), Error> {
     debug!("Rooms (local)");
-    print_rooms(client, None, output)
+    print_rooms(client, None, output).await
 }
 
 /// Print list of all invited rooms (not joined, not left) of the current user.
 pub(crate) async fn invited_rooms(client: &Client, output: Output) -> Result<(), Error> {
     debug!("Invited_rooms (local)");
-    print_rooms(client, Some(matrix_sdk::RoomState::Invited), output)
+    print_rooms(client, Some(matrix_sdk::RoomState::Invited), output).await
 }
 
 /// Print list of all joined rooms (not invited, not left) of the current user.
 pub(crate) async fn joined_rooms(client: &Client, output: Output) -> Result<(), Error> {
     debug!("Joined_rooms (local)");
-    print_rooms(client, Some(matrix_sdk::RoomState::Joined), output)
+    print_rooms(client, Some(matrix_sdk::RoomState::Joined), output).await
 }
 
 /// Print list of all left rooms (not invited, not joined) of the current user.
 pub(crate) async fn left_rooms(client: &Client, output: Output) -> Result<(), Error> {
     debug!("Left_rooms (local)");
-    print_rooms(client, Some(matrix_sdk::RoomState::Left), output)
+    print_rooms(client, Some(matrix_sdk::RoomState::Left), output).await
 }
 
 /// Create rooms, either noemal room or DM room:
@@ -2339,10 +2342,16 @@ pub(crate) async fn message(
         return Ok(()); // nothing to do
     }
     let mut err_count = 0u32;
+    let mut is_need_try_find_by_name = false;
     for roomname in roomnames.iter() {
-        let proom = RoomId::parse(roomname.replace("\\!", "!")).unwrap(); // remove possible escape
-        debug!("In message(): parsed room name is {:?}", proom);
-        let room = client.get_room(&proom).ok_or(Error::InvalidRoom)?;
+        let room = RoomId::parse(roomname.replace("\\!", "!"));
+        if room.is_err() {
+            is_need_try_find_by_name = true;
+            continue;
+        }
+        let room = room.unwrap();
+        debug!("In message(): parsed room name is {:?}", room);
+        let room = client.get_room(&room).ok_or(Error::InvalidRoom)?;
         for fmsg in fmsgs.iter() {
             match room.send(RoomMessageEventContent::new(fmsg.clone())).await {
                 Ok(response) => debug!("message send successful {:?}", response),
@@ -2351,6 +2360,24 @@ pub(crate) async fn message(
                     err_count += 1;
                 }
             }
+        }
+    }
+    if is_need_try_find_by_name {
+        for room in client.rooms() {
+            let Ok(display_name) = room.display_name().await else {
+                continue;
+            };
+            if roomnames.iter().any(|n| *n == display_name.to_string()) {
+                for fmsg in fmsgs.iter() {
+                    match room.send(RoomMessageEventContent::new(fmsg.clone())).await {
+                        Ok(response) => debug!("msg send successful {:?}", response),
+                        Err(ref e) => {
+                            error!("message send returned error {:?}", e);
+                            err_count += 1;
+                        }
+                    }
+                }
+            };
         }
     }
     if err_count == 0 {
