@@ -50,13 +50,7 @@ use update_informer::{registry, Check};
 use url::Url;
 
 use matrix_sdk::encryption::{BackupDownloadStrategy, EncryptionSettings};
-use matrix_sdk::{
-    // config::{RequestConfig, StoreConfig, SyncSettings},
-    // instant::Duration,
-    // room,
-    ruma::OwnedUserId,
-    Client,
-};
+use matrix_sdk::{ruma::OwnedUserId, Client};
 use serde_json::json;
 
 /// import matrix-sdk Client related code of general kind: logout, verify, sync, etc
