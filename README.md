@@ -7,28 +7,24 @@ https://img.shields.io/crates/d/matrix-commander
 
 <p>
 <img
-src="https://raw.githubusercontent.com/DimitriiTrater/matrix-commander-rs-community/master/logos/matrix-commander-rs.svg"
+src="https://raw.githubusercontent.com/DimitriiTrater/mcrs/master/logos/matrix-commander-rs.svg"
 alt="MC logo" height="150">
 
-# matrix-commander-rs-community
+# mcrs
 This project is based on matrix-commander-rs by 8go
 licensed under GPL v3.
 This is an independently maintained continuation of the project.
 
-# Help create this Rust program
+If you're interested in the original project, then check these links:
+[matrix-commander](https://github.com/8go/matrix-commander/) - python project
+[matrix-commander-rs](https://github.com/8go/matrix-commander-rs/) - rust project
+[matrix-commander-crates](https://crates.io/crates/matrix-commander) - matrix-commander crates.io page
 
-This Rust project is currently bare essentials. 
-A more feature-rich Python package `matrix-commander`
-exists. See [matrix-commander](https://github.com/8go/matrix-commander/).
-The vision is to have a compatible program in Rust.
-This project depends on you. The project will only advance if you provide
-some code. Have a look at the repo
-[matrix-commander-rs](https://github.com/8go/matrix-commander-rs/).
-Please help! :pray: Please contribute code to enhance this
-[matrix-commander](https://crates.io/crates/matrix-commander) crate.
-Safe!
+# Usage
 
-:heart: :clap: :pray:
+``` sh
+mcrs --help
+```
 
 # What works so far
 
@@ -49,8 +45,8 @@ Safe!
 - Things like argument parsing, logging, output in JSON format, etc.
 - Creating a brand new client, sending a message and destroying the client
   all in a single command. This send-and-forget command is:
-  `matrix-commander-rs --login password --user-login @john:some.homeserver.org
-  --password secret --device matrix-commander-rs --room-default
+  `mcrs --login password --user-login @john:some.homeserver.org
+  --password secret --device mcrs --room-default
   \!someRoomId:some.homeserver.org --message Hello --logout me`.
 
 # What you can do

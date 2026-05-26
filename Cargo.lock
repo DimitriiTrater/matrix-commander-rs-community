@@ -2101,38 +2101,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
-name = "matrix-commander"
-version = "1.0.0"
-dependencies = [
- "clap",
- "colored",
- "directories",
- "dirs",
- "futures-util",
- "json",
- "matrix-sdk",
- "matrix-sdk-base",
- "mime",
- "mime_guess",
- "open",
- "regex",
- "reqwest 0.13.2",
- "rpassword",
- "serde",
- "serde_json",
- "shellexpand",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "tokio-test",
- "tracing",
- "tracing-subscriber",
- "update-informer",
- "url",
- "wiremock",
-]
-
-[[package]]
 name = "matrix-pickle"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2426,6 +2394,38 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "mcrs"
+version = "1.0.0"
+dependencies = [
+ "clap",
+ "colored",
+ "directories",
+ "dirs",
+ "futures-util",
+ "json",
+ "matrix-sdk",
+ "matrix-sdk-base",
+ "mime",
+ "mime_guess",
+ "open",
+ "regex",
+ "reqwest 0.13.2",
+ "rpassword",
+ "serde",
+ "serde_json",
+ "shellexpand",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "tracing-subscriber",
+ "update-informer",
+ "url",
+ "wiremock",
 ]
 
 [[package]]

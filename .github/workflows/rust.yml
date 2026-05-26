@@ -79,11 +79,11 @@ jobs:
               uses: Swatinem/rust-cache@v2
 
             - name: Build release binary
-              run: cargo build --locked --release --bin matrix-commander-rs
+              run: cargo build --locked --release --bin mcrs
 
             - name: Upload binary artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: matrix-commander-rs-linux-x86_64
-                  path: target/release/matrix-commander-rs
+                  name: mcrs-linux-x86_64
+                  path: target/release/mcrs
                   if-no-files-found: error
