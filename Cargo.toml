@@ -1,14 +1,13 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [package]
-name = "matrix-commander"
+name = "mcrs"
 version = "1.0.0"
 edition = "2021"
 description = "simple but convenient CLI-based Matrix client app for sending and receiving"
-documentation = "https://docs.rs/matrix-commander"
 readme = "README.md"
-homepage = "https://github.com/DimitriiTrater/matrix-commander-rs-community"
-repository = "https://github.com/DimitriiTrater/matrix-commander-rs-community"
+homepage = "https://github.com/DimitriiTrater/mcrs"
+repository = "https://github.com/DimitriiTrater/mcrs"
 license = "GPL-3.0-or-later"
 # crates.io only allows 5 keywords
 keywords = ["Matrix", "cli", "command-line-tool", "tool", "messaging"]
@@ -62,7 +61,7 @@ shellexpand = "3.1.2"
 
 
 [dev-dependencies]
-# "matrix-commander-rs" will be the Rust program
+# "mcrs" will be the Rust program
 # to perform tests on async functions
 tokio-test = "0.4"
 # temporary files and directories for tests
@@ -70,11 +69,8 @@ tempfile = "3"
 # HTTP mock server for integration tests that need a Matrix client
 wiremock = "0.6"
 
-# this is to distinguish it from "matrix-commander" which is the Python program
-# For people that have both Python and Rust installed:
-# "matrix-commander" will remain the Python program
 [[bin]]
-name = "matrix-commander-rs"
+name = "mcrs"
 path = "src/main.rs"
 
 # https://doc.rust-lang.org/cargo/reference/manifest.html#the-badges-section

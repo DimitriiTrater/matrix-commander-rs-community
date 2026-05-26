@@ -11,26 +11,26 @@ pub mod consts {
     pub const VERSION_O: Option<&str> = option_env!("CARGO_PKG_VERSION");
     /// fallback if static compile time value is None
     pub const VERSION: &str = "unknown version";
-    /// the package name from Cargo.toml at compile time, usually matrix-commander
+    /// the package name from Cargo.toml at compile time, usually mcrs
     pub const PKG_NAME_O: Option<&str> = option_env!("CARGO_PKG_NAME");
     /// fallback if static compile time value is None
-    pub const PKG_NAME: &str = "matrix-commander";
-    /// the name of binary program from Cargo.toml at compile time, usually matrix-commander-rs
+    pub const PKG_NAME: &str = "mcrs";
+    /// the name of binary program from Cargo.toml at compile time, usually mcrs
     pub const BIN_NAME_O: Option<&str> = option_env!("CARGO_BIN_NAME");
     /// fallback if static compile time value is None
-    pub const BIN_NAME: &str = "matrix-commander-rs";
+    pub const BIN_NAME: &str = "mcrs";
     /// fallback if static compile time value is None
-    pub const BIN_NAME_UNDERSCORE: &str = "matrix_commander_rs";
+    pub const BIN_NAME_UNDERSCORE: &str = "mcrs";
     /// he repo name from Cargo.toml at compile time,
-    /// e.g. string `https://github.com/8go/matrix-commander-rs/`
+    /// e.g. string `https://github.com/DimitriiTrater/mcrs`
     pub const PKG_REPOSITORY_O: Option<&str> = option_env!("CARGO_PKG_REPOSITORY");
     /// fallback if static compile time value is None
-    pub const PKG_REPOSITORY: &str = "https://github.com/8go/matrix-commander-rs/";
+    pub const PKG_REPOSITORY: &str = "https://github.com/DimitriiTrater/mcrs/";
     /// default timeouts for waiting for the Matrix server, in seconds
     pub const TIMEOUT_DEFAULT: u64 = 60;
     /// URL for README.md file downloaded for --readme
     pub const URL_README: &str =
-        "https://raw.githubusercontent.com/8go/matrix-commander-rs/main/README.md";
+        "https://raw.githubusercontent.com/DimitriiTrater/mcrs/main/README.md";
 }
 
 const MCRS_DEVICE_NAME: &str = "mcrs";
